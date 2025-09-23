@@ -1,4 +1,4 @@
-name: whisper_new
+name: S2T_ENV
 channels:
   - nvidia
   - pytorch

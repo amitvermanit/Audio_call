@@ -1,0 +1,9 @@
+torch==2.2.2
+torchaudio==2.2.2
+numpy==1.26.4
+sentencepiece==0.2.0
+requests==2.32.4
+urllib3==2.5.0
+fairseq2==0.2.1
+seamless-communication @ git+https://github.com/facebookresearch/seamless_communication.git@90e2b57ac4d82fa2bfaa25caeffe39ceb8b2ebec
+

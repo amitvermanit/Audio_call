@@ -664,7 +664,7 @@ def process_translation_chunk_whisper(
                     if voice_clone_enabled:
                         # 🔍 Check if embedding exists
                         speaker_path = os.path.join(
-                            "./pipelines/voice_clone/voice_embeddings",
+                            "/home/test/docker_image/Docker_voice_clone/voice_embeddings",
                             f"{re.sub(r'[^a-zA-Z0-9_-]', '_', speaker_id)}.pth"
                         )
                         if not os.path.exists(speaker_path):
@@ -748,7 +748,7 @@ class OutputAudioQueue:
 
 # Saves the bytes to a wav file on disk for debugging
 def save_to_wav(audio_bytes: bytes, sample_rate=48000, num_channels=2, sample_width=2, session_id:str= None):
-    BASE_DIR = "./recordings"  # change to your real full path
+    BASE_DIR = "/home/cb-translator/ml/recordings"  # change to your real full path
     session_path = os.path.join(BASE_DIR, session_id)
     os.makedirs(session_path, exist_ok=True)
     filename = os.path.join(session_path, f"{int(time.time() * 1000)}.wav")
@@ -922,7 +922,7 @@ def process_voice_embedding_chunk(
     save_time = time.time()
 
     if chunk_count == 50:
-        os.makedirs("./recordings", exist_ok=True)
+        os.makedirs("/home/cb-translator/ml/recordings", exist_ok=True)
         print("🟡 Received 50 chunks – checking for silence")
 
         for chunk in audio_buffer:
@@ -1037,6 +1037,7 @@ def pump_audio(
     speaker_id: str,
     src_lang,
     gender: str,
+    voice_clone_enabled: bool = True,
 ):
     buf = b""
     audio_buffer = []
@@ -1071,7 +1072,7 @@ def pump_audio(
                 #print(chunk_count)
                 #save_to_wav(seg, session_id=session_id)
                 start_time = time.time()
-                voice_clone_enabled = True
+                #voice_clone_enabled = False
                 #####################################################################################
                 if voice_clone_enabled:
                     # 🔁 Inside your while loop:
@@ -1176,6 +1177,8 @@ class TranslationRequest(BaseModel):
     userId: str
     gender: str
     srcLang: str
+    enableVoiceClone: bool
+
 
 
 is_first = True
@@ -1246,6 +1249,7 @@ async def initiate_translation(data: TranslationRequest):
             data.userId,#data.sessionId.split("@")[0] #data.userId #user id  
             src_lang,
             gender,
+            data.enableVoiceClone,
         ),
         daemon=True,
     ).start()

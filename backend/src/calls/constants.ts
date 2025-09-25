@@ -1,5 +1,5 @@
 export const msConfig = {
-    announcedIp: '10.10.0.30', // using loopback (localhost) for development
+    announcedIp: '10.10.0.199', // using loopback (localhost) for development
     worker: {
         rtcMinPort: 10000,
         rtcMaxPort: 10100,

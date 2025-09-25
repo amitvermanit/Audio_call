@@ -456,5 +456,4 @@ export class SignalingGateway implements OnGatewayInit {
             translationConsumers.delete(socketId + '-video');
         }
     }
-
 }

@@ -652,7 +652,7 @@ def process_translation_chunk_whisper(
 
                 translation_time = time.time()
                 audio_tensor, sr, text_output = request_translation_tensor(
-                    host="0.0.0.0",
+                    host="127.0.0.1",
                     port=50007,
                     text=transcribed_text,
                     tgt_lang=target_lang
@@ -748,7 +748,7 @@ class OutputAudioQueue:
 
 # Saves the bytes to a wav file on disk for debugging
 def save_to_wav(audio_bytes: bytes, sample_rate=48000, num_channels=2, sample_width=2, session_id:str= None):
-    BASE_DIR = "/home/cb-translator/ml/recordings"  # change to your real full path
+    BASE_DIR = "./recordings"  # change to your real full path
     session_path = os.path.join(BASE_DIR, session_id)
     os.makedirs(session_path, exist_ok=True)
     filename = os.path.join(session_path, f"{int(time.time() * 1000)}.wav")
@@ -922,7 +922,7 @@ def process_voice_embedding_chunk(
     save_time = time.time()
 
     if chunk_count == 50:
-        os.makedirs("/home/cb-translator/ml/recordings", exist_ok=True)
+        os.makedirs("./ml/recordings", exist_ok=True)
         print("🟡 Received 50 chunks – checking for silence")
 
         for chunk in audio_buffer:
@@ -1046,108 +1046,99 @@ def pump_audio(
     embedding_counter = 0
     empty_chunk_counter = 0   # 🔹 track consecutive empty chunks
 
-    try:
-        while True:
-            chunk = ff_in.stdout.read(SAMPLE_READ_SIZE)
-            if not chunk:
-                empty_chunk_counter += 1
-                print(f"⚠️ Empty chunk detected for session {session_id} ({empty_chunk_counter}/20)")
-                if empty_chunk_counter >= 20:
-                    print(f"🛑 No audio for 20 loops, clearing Whisper session {session_id}")
-                    whisper_sessions.pop(session_id, None)   # 🔹 cleanup
-                    break
-                time.sleep(0.05)  # avoid tight loop
-                continue
-            else:
-                empty_chunk_counter = 0  # reset on valid chunk
-
-            if output_queue.closed:
-                print("output closed, stopping")
+    
+    while True:
+        chunk = ff_in.stdout.read(SAMPLE_READ_SIZE)
+        if not chunk:
+            empty_chunk_counter += 1
+            print(f"⚠️ Empty chunk detected for session {session_id} ({empty_chunk_counter}/20)")
+            if empty_chunk_counter >= 20:
+                print(f"🛑 No audio for 20 loops, clearing Whisper session {session_id}")
+                whisper_sessions.pop(session_id, None)   # 🔹 cleanup
+                output_queue.closed = True
                 break
+            time.sleep(0.05)  # avoid tight loop
+            continue
+        else:
+            empty_chunk_counter = 0  # reset on valid chunk
 
-            buf += chunk
-            while len(buf) >= segment_size:
-                chunk_count += 1
-                seg, buf = buf[:segment_size], buf[segment_size:]                
-                #print(chunk_count)
-                #save_to_wav(seg, session_id=session_id)
-                start_time = time.time()
-                #voice_clone_enabled = False
-                #####################################################################################
-                if voice_clone_enabled:
-                    # 🔁 Inside your while loop:
-                    chunk_count, embedding_counter, speaker_id = process_voice_embedding_chunk(
-                        seg=seg,
-                        session_id=session_id,
-                        chunk_count=chunk_count,
-                        audio_buffer=audio_buffer,
-                        tensor_buffer=tensor_buffer,
-                        embedding_counter=embedding_counter,
-                        speaker_id=speaker_id,  # ✅ Pass current speaker_id
-                        save_audio=save_audio,
-                        request_voice_embed=request_voice_embed,
-                        bytes_to_float32_mono_array=bytes_to_float32_mono_array,
-                        bandpass_filter=bandpass_filter,
-                        nr=nr,
-                        is_silent=is_silent,
-                    )
-                ##############################################################
+        if output_queue.closed:
+            print("output closed, stopping")
+            break
 
-                if seamless_streaming == 1:
-                    process_translation_chunk_whisper(
-                        seg,                  # audio chunk bytes
-                        output_queue,         # your queue to receive transcriptions
-                        input_sr=48000,       # input sample rate of the audio chunk
-                        target_sr=16000,       # sample rate expected by Whisper
-                        target_lang = target_lang,
-                        voice_clone_enabled = voice_clone_enabled,
-                        session_id=session_id,
-                        speaker_id=speaker_id,
-                        src_lang = src_lang,
-                        gender = gender,
+        buf += chunk
+        while len(buf) >= segment_size:
+            chunk_count += 1
+            seg, buf = buf[:segment_size], buf[segment_size:]                
+            #print(chunk_count)
+            #save_to_wav(seg, session_id=session_id)
+            start_time = time.time()
+            #voice_clone_enabled = False
+            #####################################################################################
+            if voice_clone_enabled:
+                # 🔁 Inside your while loop:
+                chunk_count, embedding_counter, speaker_id = process_voice_embedding_chunk(
+                    seg=seg,
+                    session_id=session_id,
+                    chunk_count=chunk_count,
+                    audio_buffer=audio_buffer,
+                    tensor_buffer=tensor_buffer,
+                    embedding_counter=embedding_counter,
+                    speaker_id=speaker_id,  # ✅ Pass current speaker_id
+                    save_audio=save_audio,
+                    request_voice_embed=request_voice_embed,
+                    bytes_to_float32_mono_array=bytes_to_float32_mono_array,
+                    bandpass_filter=bandpass_filter,
+                    nr=nr,
+                    is_silent=is_silent,
+                )
+            ##############################################################
+
+            if seamless_streaming == 1:
+                process_translation_chunk_whisper(
+                    seg,                  # audio chunk bytes
+                    output_queue,         # your queue to receive transcriptions
+                    input_sr=48000,       # input sample rate of the audio chunk
+                    target_sr=16000,       # sample rate expected by Whisper
+                    target_lang = target_lang,
+                    voice_clone_enabled = voice_clone_enabled,
+                    session_id=session_id,
+                    speaker_id=speaker_id,
+                    src_lang = src_lang,
+                    gender = gender,
+                )
+                #################################################
+            else:
+                video_frames = video_frames_storage.pop(session_id, None)
+                print(
+                    f"🟩 Processing video and audio segment for session {session_id}... {chunk_count}"
+                    + (
+                        f", video frames: {len(video_frames)}"
+                        if video_frames is not None
+                        else ", no video frames found."
                     )
-                    #################################################
-                else:
-                    video_frames = video_frames_storage.pop(session_id, None)
-                    print(
-                        f"🟩 Processing video and audio segment for session {session_id}... {chunk_count}"
-                        + (
-                            f", video frames: {len(video_frames)}"
-                            if video_frames is not None
-                            else ", no video frames found."
-                        )
-                    )
-                    
-                    
-                    output_queue.enqueue(seg)
-                #print(f"Processing time: {(time.time() - start_time):.4f} seconds")
-    finally:
-        output_queue.closed = True
-        ff_in.stdout.close()
-        ff_out.stdin.close()
-        ff_in.wait()
-        ff_out.wait()
-        try:
-            os.remove(sdp_path)
-        except OSError:
-            pass
+                )
+                
+                
+                output_queue.enqueue(seg)
+            #print(f"Processing time: {(time.time() - start_time):.4f} seconds")
 
 
 # Function that writes translated audio from the output queue to the output pipe at correct throughput
 def write_to_output(output_queue: OutputAudioQueue, ff_out: Popen):
     next_time = time.perf_counter()
     try:
-        while not output_queue.closed:
+        while True:
+            if output_queue.closed:
+                break
             seg = output_queue.dequeue(SAMPLE_READ_SIZE)
             if seg:
                 try:
-                    # print("=======================", seg)
                     ff_out.stdin.write(seg)
                     ff_out.stdin.flush()
                 except BrokenPipeError:
-                    # stop the voice clone
                     print("⚠️ FFmpeg-OUT pipe closed")
-                    return
+                    break
             next_time += OUTPUT_PERIOD
             sleep_time = next_time - time.perf_counter()
             if sleep_time > 0:
@@ -1157,7 +1148,10 @@ def write_to_output(output_queue: OutputAudioQueue, ff_out: Popen):
     except Exception as e:
         print(f"Error in processing thread: {e}")
     finally:
-        output_queue.closed = True
+        try:
+            ff_out.stdin.close()
+        except Exception:
+            pass
 
 
 # ----------------- FastAPI Server ----------------- #

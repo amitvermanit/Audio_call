@@ -1,15 +1,22 @@
 #!/bin/bash
 
 # === CONFIG ===
-CONDA_PATH="/home/test/miniconda3/etc/profile.d/conda.sh"
+CONDA_PATH="/home/user/miniconda3/etc/profile.d/conda.sh"
 PROFILE_DIR="/tmp/.chrome_script_profile"
 
 # === FRONTEND ===
-gnome-terminal -- bash -ic "cd /home/cb-translator/frontend && echo '[INFO] Starting Frontend...' && npm run dev ; exec bash"
+gnome-terminal -- bash -ic "
+    cd /home/user/Desktop/Audio_call/frontend && 
+    echo '[INFO] Starting Frontend...' && 
+    npm run dev ; exec bash
+"
 
 # === BACKEND ===
-gnome-terminal -- bash -ic "cd /home/cb-translator/backend && echo '[INFO] Starting Backend...' && npm run start:dev ; exec bash"
-
+gnome-terminal -- bash -ic "
+    cd /home/user/Desktop/Audio_call/backend && 
+    echo '[INFO] Starting Backend...' && 
+    npm run start:dev ; exec bash
+"
 
 # === WHISPER-S2T ===
 gnome-terminal -- bash -c "
@@ -21,6 +28,7 @@ gnome-terminal -- bash -c "
     python _main.py
     exec bash
 "
+
 # === SEAMLESS-T2S ===
 gnome-terminal -- bash -c "
     source $CONDA_PATH
@@ -31,6 +39,7 @@ gnome-terminal -- bash -c "
     python seamless_t2S_worker.py
     exec bash
 "
+
 # === VOICE-CLONE ===
 gnome-terminal -- bash -c "
     source $CONDA_PATH
@@ -43,6 +52,5 @@ gnome-terminal -- bash -c "
 "
 
 # === OPEN CHROMIUM BROWSERS ===
-chromium --user-data-dir="$PROFILE_DIR" "http://localhost:5173/" --new-window &
-chromium --user-data-dir="$PROFILE_DIR" --incognito "http://localhost:5173/" &
-
+/usr/bin/chromium --user-data-dir="$PROFILE_DIR" "http://localhost:5173/" --new-window &
+/usr/bin/chromium --user-data-dir="$PROFILE_DIR" --incognito "http://localhost:5173/" &
